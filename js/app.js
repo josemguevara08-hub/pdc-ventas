@@ -225,11 +225,10 @@
       const n = piezasDe(p.id);
       const foto = C.fotos[p.id] || C.fotoGenerica;
       const color = C.colores[p.id] || 'azul';
-      return `<button class="producto" data-pid="${p.id}">
+      return `<button class="producto a-${color}" data-pid="${p.id}">
           <div class="foto"><img src="${esc(foto)}" alt="" loading="lazy"></div>
           <div class="nombre titulo">${esc(p.nombre)}</div>
-          <div class="franja c-${color}"></div>
-          ${n ? `<span class="contador">${n}</span>` : ''}
+          ${n ? `<span class="contador" aria-label="${n} en esta venta">${n}</span>` : ''}
         </button>`;
     }).join('');
   }
@@ -292,7 +291,7 @@
 
   // ---------- Ticket ----------
   function htmlLineas() {
-    if (!E.ticket.length) return '<li class="vacio">Toca un producto para empezar</li>';
+    if (!E.ticket.length) return '<li class="vacio">Toca una tarta para empezar</li>';
     return E.ticket.map((l) => {
       const { producto, sabor } = buscar(l.producto_id, l.sabor_id);
       return `<li class="linea">
@@ -332,7 +331,7 @@
   function actualizarConfirmar() {
     const b = $('#r-confirmar');
     b.disabled = E.guardando || !E.metodo || !totalPiezas();
-    b.textContent = E.guardando ? 'Guardando…' : (E.metodo ? 'Confirmar venta' : 'Elige cómo pagó');
+    b.textContent = E.guardando ? 'Guardando…' : (E.metodo ? 'Guardar venta' : 'Elige cómo pagó');
   }
   $('#t-continuar').addEventListener('click', abrirResumen);
   $('#i-continuar').addEventListener('click', abrirResumen);
@@ -375,9 +374,10 @@
     E.guardando = false; E.metodo = null;
     cerrarResumen(); pintarProductos(); pintarTicket(); pintarPendientes();
     const piezas = venta.items.reduce((a, i) => a + i.cantidad, 0);
-    if (r.ok) confirmacion('ok', 'Venta guardada', `#${r.folio} · ${piezas} ${piezas === 1 ? 'pieza' : 'piezas'} · ${venta.metodo_nombre}`);
-    else if (r.rechazada) aviso('No se pudo guardar: ' + r.mensaje + '. Revisa "Ventas de hoy".', 'error');
-    else confirmacion('pendiente', 'Guardada en este dispositivo', 'Se enviará sola cuando vuelva el internet.');
+    const txtPiezas = `${piezas} ${piezas === 1 ? 'pieza' : 'piezas'}, pago con ${venta.metodo_nombre.toLowerCase()}`;
+    if (r.ok) confirmacion('ok', `#${r.folio}`, 'Venta guardada', txtPiezas);
+    else if (r.rechazada) aviso('No se guardó: ' + r.mensaje + '. Revísala en "Ventas de hoy".', 'error');
+    else confirmacion('pendiente', 'Sin internet', 'Venta guardada en este dispositivo', 'Se enviará sola cuando vuelva la conexión.');
   }
 
   async function enviar(venta) {
@@ -406,11 +406,10 @@
   }
 
   let confTimer;
-  function confirmacion(tipo, titulo, texto) {
+  function confirmacion(tipo, folio, titulo, texto) {
     const c = $('#c-ok');
     c.className = 'confirmacion ' + tipo;
-    $('#c-titulo').textContent = titulo; $('#c-texto').textContent = texto;
-    c.querySelector('.icono').textContent = tipo === 'ok' ? '✓' : '⏳';
+    $('#c-folio').textContent = folio; $('#c-titulo').textContent = titulo; $('#c-texto').textContent = texto;
     c.hidden = false;
     clearTimeout(confTimer);
     confTimer = setTimeout(() => { c.hidden = true; }, tipo === 'ok' ? 1800 : 3000);
@@ -423,9 +422,9 @@
     const err = E.cola.filter((v) => v.error).length;
     const b = $('#b-pendientes');
     const partes = [];
-    if (pend) partes.push(`⏳ ${pend} ${pend === 1 ? 'venta guardada' : 'ventas guardadas'} en este dispositivo, ${pend === 1 ? 'se enviará' : 'se enviarán'} al volver el internet`);
-    if (err) partes.push(`⚠️ ${err} ${err === 1 ? 'venta' : 'ventas'} con error: revisa "Ventas de hoy"`);
-    b.textContent = partes.join(' · '); b.hidden = !partes.length;
+    if (pend) partes.push(`Sin internet: ${pend} ${pend === 1 ? 'venta espera' : 'ventas esperan'} para enviarse. No cierres la app.`);
+    if (err) partes.push(`${err} ${err === 1 ? 'venta no se guardó' : 'ventas no se guardaron'}: revisa "Ventas de hoy"`);
+    b.textContent = partes.join('. '); b.hidden = !partes.length;
   }
 
   async function sincronizar() {
@@ -486,11 +485,11 @@
     const htmlLocal = locales.map((v) => `
       <div class="venta-hoy">
         <div class="cab">
-          <span class="folio">Sin folio</span><span>${horaCDMX(new Date(v.fecha))}</span>
-          <span>${esc(v.empleado)}</span><span class="chip">${esc(v.metodo_nombre)}</span>
-          ${v.error ? `<span class="chip rojo">No se guardó: ${esc(v.error)}</span>` : '<span class="chip">Pendiente de enviar</span>'}
+          <span class="folio">${horaCDMX(new Date(v.fecha))}</span>
+          <span class="quien">${esc(v.empleado)}, ${esc(v.metodo_nombre.toLowerCase())}</span>
+          ${v.error ? `<span class="chip rojo">No se guardó: ${esc(v.error)}</span>` : '<span class="chip">Esperando internet</span>'}
         </div>
-        <ul>${v.items.map((i) => `<li>${i.cantidad} × ${esc(i.producto)} · ${esc(i.sabor)}</li>`).join('')}</ul>
+        <ul>${v.items.map((i) => `<li>${i.cantidad} ${esc(i.producto)}, ${esc(i.sabor)}</li>`).join('')}</ul>
         ${v.error ? `<button class="btn btn-secundario" data-reintentar="${v.id}">Reintentar</button>` : ''}
         <button class="btn btn-peligro" data-descartar="${v.id}">${v.error ? 'Descartar' : 'Cancelar'}</button>
       </div>`).join('');
@@ -500,11 +499,11 @@
         (ahora - Date.parse(v.recibida_en)) < C.minutosParaCancelar * 60000;
       return `<div class="venta-hoy ${v.estado === 'cancelada' ? 'cancelada' : ''}">
           <div class="cab">
-            <span class="folio">#${v.folio}</span><span>${esc(v.hora)}</span>
-            <span>${esc(v.empleado)}</span><span class="chip azul">${esc(v.metodo)}</span>
+            <span class="folio">#${v.folio}</span>
+            <span class="quien">${esc(v.hora)} h, ${esc(v.empleado)}, ${esc(String(v.metodo).toLowerCase())}</span>
             ${v.estado === 'cancelada' ? '<span class="chip rojo">Cancelada</span>' : ''}
           </div>
-          <ul>${(v.items || []).map((i) => `<li>${i.cantidad} × ${esc(i.producto)} · ${esc(i.sabor)}</li>`).join('')}</ul>
+          <ul>${(v.items || []).map((i) => `<li>${i.cantidad} ${esc(i.producto)}, ${esc(i.sabor)}</li>`).join('')}</ul>
           ${puede ? `<button class="btn btn-peligro" data-cancelar="${v.id}" data-folio="${v.folio}">Cancelar venta</button>` : ''}
         </div>`;
     }).join('');
@@ -565,7 +564,7 @@
     sabor.agotado = !sabor.agotado;
     LS.set(K.catalogo, { punto: E.ctx.punto_id, data: E.catalogo });
     pintarAgotados();
-    aviso(`${producto.nombre} · ${sabor.nombre}: ${sabor.agotado ? 'agotado' : 'disponible'}`);
+    aviso(`${sabor.nombre} en ${producto.nombre}: ${sabor.agotado ? 'agotado' : 'disponible'}`);
   });
 
   sb.auth.onAuthStateChange((evento) => {

@@ -16,13 +16,13 @@
 <body>
 
   <!-- 1 · Inicio de sesión del punto (se hace una sola vez por dispositivo) -->
-  <section id="v-login" class="vista centrado" hidden>
+  <section id="v-login" class="vista centrado campo-azul" hidden>
     <div class="marca-login">
       <span class="logo" role="img" aria-label="Pedazo de Cielo"></span>
       <div class="tagline">Tartas más que originales</div>
     </div>
     <form id="f-login" class="tarjeta" autocomplete="on">
-      <h1 class="titulo" style="color:var(--azul);font-size:22px;margin-bottom:18px">Registro de ventas</h1>
+      <h1 class="titulo">Registro de ventas</h1>
       <div class="campo">
         <label for="l-usuario">Usuario del punto</label>
         <input id="l-usuario" name="username" autocomplete="username" autocapitalize="none" placeholder="ej. artz" required>
@@ -38,11 +38,11 @@
   </section>
 
   <!-- 2 · PIN del empleado (al iniciar turno) -->
-  <section id="v-pin" class="vista centrado" hidden>
+  <section id="v-pin" class="vista centrado campo-azul" hidden>
     <div class="pin-cabecera">
-      <span class="logo" style="width:min(240px,62vw);color:var(--azul)" role="img" aria-label="Pedazo de Cielo"></span>
+      <span class="logo" role="img" aria-label="Pedazo de Cielo"></span>
       <h1 class="titulo punto" id="p-punto"></h1>
-      <p>Escribe tu PIN para iniciar turno</p>
+      <p>Escribe tu PIN para empezar tu turno</p>
     </div>
     <div class="pin-puntos" id="p-puntos"><span></span><span></span><span></span><span></span></div>
     <div class="teclado" id="p-teclado">
@@ -66,26 +66,26 @@
       <div class="acciones">
         <button id="b-hoy">Ventas de hoy</button>
         <button id="b-agotados">Agotados</button>
-        <button id="b-cambiar">Cambiar</button>
+        <button id="b-cambiar">Cambiar turno</button>
       </div>
     </header>
     <div class="pendientes" id="b-pendientes" hidden></div>
 
     <main class="venta">
       <div>
-        <h2 class="titulo seccion-titulo">¿Qué se vendió?</h2>
+        <h1 class="titulo pregunta">¿Qué se vendió?</h1>
         <div class="productos" id="productos"></div>
       </div>
       <aside class="ticket">
-        <h2 class="titulo seccion-titulo">Esta venta</h2>
+        <h2 class="titulo">Esta venta</h2>
         <ul class="lineas" id="t-lineas"></ul>
-        <button class="btn btn-primario btn-bloque" id="t-continuar" disabled>Continuar</button>
+        <button class="btn btn-primario btn-bloque" id="t-continuar" disabled>Revisar venta</button>
       </aside>
     </main>
 
     <div class="barra-inferior">
-      <div class="resumen-corto"><span class="titulo" id="i-num">0</span> <span id="i-txt">productos</span></div>
-      <button class="btn btn-primario" id="i-continuar" disabled>Continuar</button>
+      <div class="resumen-corto"><span class="titulo" id="i-num">0</span><span id="i-txt">piezas</span></div>
+      <button class="btn btn-primario" id="i-continuar" disabled>Revisar venta</button>
     </div>
   </section>
 
@@ -111,7 +111,8 @@
         <h1 class="titulo">Sabores agotados hoy</h1>
         <button class="btn btn-secundario" data-ir="venta">Volver</button>
       </div>
-      <p class="nota" style="margin:0 0 14px">Toca un sabor para marcarlo como <b>agotado</b> (rojo) o <b>disponible</b> (verde). Solo aplica a este punto y a hoy.</p>
+      <p class="nota" style="margin:0 0 12px">Toca un sabor para cambiarlo. Solo aplica a este punto y a hoy; mañana todo vuelve a estar disponible.</p>
+      <div class="leyenda"><span class="disp">Disponible</span><span class="ago">Agotado</span></div>
       <div id="a-lista"></div>
     </div>
   </section>
@@ -120,10 +121,8 @@
   <div class="fondo-modal" id="m-sabores" hidden>
     <div class="hoja" role="dialog" aria-modal="true">
       <div class="hoja-cabecera">
-        <div style="flex:1">
-          <h2 class="titulo" id="s-titulo"></h2>
-          <div class="ayuda">Toca el sabor una vez por cada pieza</div>
-        </div>
+        <h2 class="titulo" id="s-titulo"></h2>
+        <div class="ayuda">Toca el sabor una vez por cada pieza vendida</div>
       </div>
       <div class="sabores" id="s-lista"></div>
       <button class="btn btn-primario btn-bloque" id="s-listo">Listo</button>
@@ -134,21 +133,22 @@
   <div class="fondo-modal" id="m-resumen" hidden>
     <div class="hoja" role="dialog" aria-modal="true">
       <div class="hoja-cabecera"><h2 class="titulo">Revisa la venta</h2></div>
-      <ul class="lineas" id="r-lineas" style="background:var(--blanco);border-radius:var(--radio);padding:4px 14px;margin-bottom:14px"></ul>
-      <div class="etiqueta-paso">¿Cómo pagó?</div>
+      <ul class="lineas revisar-lineas" id="r-lineas"></ul>
+      <h3 class="pregunta-pago">¿Cómo pagó?</h3>
       <div class="metodos" id="r-metodos"></div>
       <div class="botones-hoja">
-        <button class="btn btn-primario btn-bloque" id="r-confirmar" disabled>Confirmar venta</button>
+        <button class="btn btn-primario btn-bloque" id="r-confirmar" disabled>Guardar venta</button>
         <button class="btn btn-secundario btn-bloque" id="r-seguir">Seguir agregando</button>
       </div>
     </div>
   </div>
 
   <!-- Confirmación a pantalla completa -->
-  <div class="confirmacion" id="c-ok" hidden>
-    <div class="icono">✓</div>
+  <div class="confirmacion" id="c-ok" hidden role="status" aria-live="assertive">
+    <div class="folio" id="c-folio"></div>
     <div class="titulo" id="c-titulo">Venta guardada</div>
     <p id="c-texto"></p>
+    <span class="logo" aria-hidden="true"></span>
   </div>
 
   <div class="aviso" id="aviso" hidden></div>
