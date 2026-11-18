@@ -1,0 +1,10 @@
+// Configuración de Cloudflare: publica solo la carpeta "public" como sitio estático.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pdc-ventas",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public"
+  }
+}

@@ -7,8 +7,8 @@ App web para que el personal de Pedazo de Cielo registre qué se vende en cada p
 | Pieza | Dónde vive | Para qué |
 |---|---|---|
 | Código | GitHub, repositorio privado `pdc-ventas` | Los archivos de la app y su historial |
-| Alojamiento | Cloudflare Pages | Publica la app en internet; se actualiza sola con cada cambio en GitHub |
-| URL | `https://pdc-ventas.pages.dev` | Personal: `/` · Administración: `/admin` |
+| Alojamiento | Cloudflare Workers (sitio estático) | Publica la app en internet; se actualiza sola con cada cambio en GitHub |
+| URL | `https://pdc-ventas.<tu-subdominio>.workers.dev` | Personal: `/` · Administración: `/admin` |
 | Datos | Supabase, proyecto `pdc-ventas` | Base de datos privada con las ventas y los inicios de sesión |
 
 ## Cómo se usa (personal)
@@ -35,10 +35,12 @@ App web para que el personal de Pedazo de Cielo registre qué se vende en cada p
 
 ## Planes gratuitos (sin tarjeta registrada = sin cobros)
 - **Supabase Free**: 500 MB de base de datos (cientos de miles de ventas). Pausa el proyecto tras 7 días sin actividad; si pasa, se reactiva desde supabase.com con el botón *Restore*. Sin respaldos automáticos → usar *Respaldo completo*.
-- **Cloudflare Pages Free**: permite uso comercial, ancho de banda ilimitado, 500 publicaciones al mes.
+- **Cloudflare Workers Free**: los archivos estáticos (esta app) se sirven sin costo; sin tarjeta registrada no hay cobros.
 
 ## Estructura
 ```
+wrangler.jsonc             → le dice a Cloudflare que publique solo la carpeta public/
+public/                    → todo lo que se publica en internet
 index.html, js/app.js      → app del personal
 admin.html, js/admin.js    → panel de administración
 css/estilos.css            → identidad visual (Manual de Identidad PDC)
