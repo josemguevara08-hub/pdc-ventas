@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0383E5">
+  <title>Pedazo de Cielo · Administración de ventas</title>
+  <link rel="icon" href="img/icon-192.png">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+  <!-- Login del administrador -->
+  <section id="v-login" class="vista centrado" hidden>
+    <div class="marca-login">
+      <span class="logo" role="img" aria-label="Pedazo de Cielo"></span>
+      <div class="tagline">Administración de ventas</div>
+    </div>
+    <form id="f-login" class="tarjeta">
+      <div class="campo"><label for="l-email">Correo</label><input id="l-email" type="email" autocomplete="username" required></div>
+      <div class="campo"><label for="l-clave">Contraseña</label><input id="l-clave" type="password" autocomplete="current-password" required></div>
+      <button class="btn btn-primario btn-bloque" type="submit" id="l-entrar">Entrar</button>
+      <p class="error" id="l-error"></p>
+    </form>
+  </section>
+
+  <!-- Panel -->
+  <section id="v-panel" hidden>
+    <header class="admin-barra">
+      <span class="logo" role="img" aria-label="Pedazo de Cielo"></span>
+      <span class="tagline">Administración de ventas</span>
+      <button class="btn btn-texto" style="color:var(--crema)" id="salir">Cerrar sesión</button>
+    </header>
+    <nav class="pestanas" id="pestanas">
+      <button data-tab="ventas" class="activa">Ventas</button>
+      <button data-tab="catalogo">Productos y precios</button>
+      <button data-tab="empleados">Empleados</button>
+      <button data-tab="puntos">Puntos y pagos</button>
+    </nav>
+
+    <main class="admin">
+      <!-- ===== Ventas ===== -->
+      <div data-panel="ventas">
+        <div class="panel">
+          <h2 class="titulo">Consultar ventas</h2>
+          <div class="filtros">
+            <div class="campo"><label for="f-desde">Desde</label><input type="date" id="f-desde"></div>
+            <div class="campo"><label for="f-hasta">Hasta</label><input type="date" id="f-hasta"></div>
+            <div class="campo"><label for="f-punto">Punto de venta</label><select id="f-punto"><option value="">Todos</option></select></div>
+            <div class="campo"><label for="f-metodo">Método de pago</label><select id="f-metodo"><option value="">Todos</option></select></div>
+            <div class="campo"><label for="f-producto">Producto</label><select id="f-producto"><option value="">Todos</option></select></div>
+            <div class="campo"><label for="f-sabor">Sabor</label><select id="f-sabor"><option value="">Todos</option></select></div>
+            <div class="campo"><label for="f-estado">Estado</label>
+              <select id="f-estado"><option value="activa">Solo activas</option><option value="cancelada">Solo canceladas</option><option value="">Todas</option></select></div>
+          </div>
+          <div class="filtros-botones">
+            <button class="btn btn-primario" id="b-consultar">Consultar</button>
+            <button class="btn btn-secundario" id="b-hoy">Hoy</button>
+            <button class="btn btn-secundario" id="b-excel">Descargar Excel</button>
+            <button class="btn btn-secundario" id="b-respaldo">Respaldo completo</button>
+          </div>
+          <p class="nota">Ingresos calculados a precio de lista (la app no registra cobros ni descuentos). "Respaldo completo" descarga todas las ventas desde el inicio: hazlo una vez por semana.</p>
+        </div>
+
+        <div class="kpis" id="kpis"></div>
+
+        <div class="grid-2">
+          <div class="panel"><h2 class="titulo">Por producto y sabor</h2><div class="tabla-cont" id="t-prodsabor"></div></div>
+          <div>
+            <div class="panel"><h2 class="titulo">Por punto de venta</h2><div class="tabla-cont" id="t-punto"></div></div>
+            <div class="panel"><h2 class="titulo">Por método de pago</h2><div class="tabla-cont" id="t-metodo"></div></div>
+          </div>
+        </div>
+        <div class="panel"><h2 class="titulo">Detalle</h2><div class="tabla-cont" id="t-detalle"></div></div>
+      </div>
+
+      <!-- ===== Catálogo ===== -->
+      <div data-panel="catalogo" hidden>
+        <div class="panel">
+          <h2 class="titulo">Sabor de temporada</h2>
+          <div class="filtros">
+            <div class="campo"><label for="c-temporada">Nombre que verá el personal</label><input id="c-temporada" type="text" maxlength="40"></div>
+            <div><button class="btn btn-primario" id="b-temporada">Guardar</button></div>
+          </div>
+          <p class="nota">Las ventas ya registradas conservan el nombre que tenía el sabor ese día.</p>
+        </div>
+        <div class="panel"><h2 class="titulo">Productos y precios</h2><div class="tabla-cont" id="c-productos"></div>
+          <p class="nota">Cambiar un precio solo afecta las ventas nuevas. Las anteriores conservan el precio con el que se registraron.</p></div>
+        <div class="panel"><h2 class="titulo">Sabores</h2><div class="tabla-cont" id="c-sabores"></div></div>
+        <div class="panel"><h2 class="titulo">Qué sabores tiene cada producto</h2><div class="tabla-cont" id="c-matriz"></div></div>
+      </div>
+
+      <!-- ===== Empleados ===== -->
+      <div data-panel="empleados" hidden>
+        <div class="panel">
+          <h2 class="titulo">Agregar empleado</h2>
+          <form id="e-form" class="filtros">
+            <div class="campo"><label for="e-nombre">Nombre</label><input id="e-nombre" required maxlength="40"></div>
+            <div class="campo"><label for="e-punto">Punto de venta</label><select id="e-punto" required></select></div>
+            <div class="campo"><label for="e-pin">PIN (4 números)</label><input id="e-pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required autocomplete="off"></div>
+            <div><button class="btn btn-primario" type="submit">Agregar</button></div>
+          </form>
+          <p class="nota">El PIN se guarda cifrado: ni tú podrás verlo después. Si alguien lo olvida, asígnale uno nuevo.</p>
+        </div>
+        <div class="panel"><h2 class="titulo">Empleados</h2><div class="tabla-cont" id="e-tabla"></div></div>
+      </div>
+
+      <!-- ===== Puntos y métodos ===== -->
+      <div data-panel="puntos" hidden>
+        <div class="panel"><h2 class="titulo">Métodos de pago por punto</h2><div class="tabla-cont" id="p-matriz"></div>
+          <p class="nota">Marca qué botones de pago aparecen en cada punto. Los cambios se ven en el dispositivo al volver a abrir la app (o en máximo 5 minutos).</p></div>
+      </div>
+      <div class="pie">v<span class="ver"></span></div>
+    </main>
+  </section>
+
+  <div class="aviso" id="aviso" hidden></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/lib/supabase.js"></script>
+  <script src="js/lib/xlsx.mini.min.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
