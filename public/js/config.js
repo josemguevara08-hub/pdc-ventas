@@ -5,7 +5,7 @@
 // NUNCA pongas aquí la clave "service_role" ni contraseñas.
 // =====================================================================
 window.PDC_CONFIG = {
-  version: '1.2.0',
+  version: '1.2.1',
   supabaseUrl: 'https://uuurvehklcacrhnkhadk.supabase.co',
   supabaseKey: 'sb_publishable__5CH8jEq2olts2pK5epTHA_4YN-rT6C',
 
