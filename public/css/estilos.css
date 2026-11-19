@@ -3,16 +3,12 @@
    Basado en el Manual de Identidad de Pedazo de Cielo:
    - Paleta primaria: azul #0383E5, menta #62D3AD, frambuesa #B73456, crema #F5DBB9
    - Tonos oscuros solo como apoyo, siempre junto al color primario
-   - Roc Grotesk: títulos y nombres (interletrado 50–80)
-   - Made Tommy: textos, botones y etiquetas
+   - Títulos: estilo Roc Grotesk (se usa Arial Black, interletrado 50–80)
+   - Textos: estilo Made Tommy (se usa la letra del sistema)
    Idea de diseño: la pantalla de venta es un "posteo" de la marca —
    campo azul sólido y cada tarta sobre su base crema.
    ===================================================================== */
 
-@font-face { font-family: 'Roc Grotesk'; src: url('../fonts/RocGrotesk-Black.woff2') format('woff2'); font-weight: 900; font-display: swap; }
-@font-face { font-family: 'Made Tommy'; src: url('../fonts/MadeTommy-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'Made Tommy'; src: url('../fonts/MadeTommy-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
-@font-face { font-family: 'Made Tommy'; src: url('../fonts/MadeTommy-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
 
 :root {
   --azul: #0383E5;      --azul-osc: #0273bf;

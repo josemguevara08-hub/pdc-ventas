@@ -47,6 +47,6 @@ css/estilos.css            → identidad visual (Manual de Identidad PDC)
 js/config.js               → conexión a Supabase, fotos y colores por producto
 sw.js, manifest.webmanifest→ funcionamiento sin internet / instalar en pantalla de inicio
 _headers                   → encabezados de seguridad (Cloudflare)
-img/, fonts/               → logo, fotos, íconos, tipografías
+img/                       → logo, fotos e íconos (tipografías: Arial Black y la del sistema)
 supabase/*.sql             → estructura de la base de datos (ya aplicada)
 ```

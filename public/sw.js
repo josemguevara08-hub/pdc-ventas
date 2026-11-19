@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el dispositivo para que abra aunque no haya internet.
 // Al publicar una versión nueva, cambia el número de VERSION.
-const VERSION = 'pdc-v1.2.1';
+const VERSION = 'pdc-v1.2.2';
 const ARCHIVOS = [
   './', 'css/estilos.css', 'js/config.js', 'js/app.js', 'js/lib/supabase.js',
   'img/logo.svg', 'img/monograma.svg', 'img/icon-192.png',
