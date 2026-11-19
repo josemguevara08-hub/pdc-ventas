@@ -32,7 +32,7 @@
     });
   }
 
-  const D = { puntos: [], metodos: [], productos: [], sabores: [], prodSabores: [], metodosPunto: [], empleados: [], filas: [] };
+  const D = { puntos: [], metodos: [], productos: [], sabores: [], prodSabores: [], metodosPunto: [], noDisponible: [], empleados: [], filas: [] };
 
   // =====================================================================
   // Sesión
@@ -81,23 +81,27 @@
   // Catálogo (se usa en filtros y pestañas de configuración)
   // =====================================================================
   async function cargarCatalogo() {
-    const [pv, mp, pr, sa, ps, mpp] = await Promise.all([
+    const [pv, mp, pr, sa, ps, mpp, nd] = await Promise.all([
       sb.from('puntos_venta').select('*').order('orden'),
       sb.from('metodos_pago').select('*').order('orden'),
       sb.from('productos').select('*').order('orden'),
       sb.from('sabores').select('*').order('orden'),
       sb.from('producto_sabores').select('*'),
-      sb.from('metodos_punto').select('*')
+      sb.from('metodos_punto').select('*'),
+      sb.from('no_disponible_punto').select('*')
     ]);
-    const err = [pv, mp, pr, sa, ps, mpp].find((r) => r.error);
+    const err = [pv, mp, pr, sa, ps, mpp, nd].find((r) => r.error);
     if (err) return aviso('No se pudo cargar el catálogo: ' + err.error.message, 'error');
-    D.puntos = pv.data; D.metodos = mp.data; D.productos = pr.data; D.sabores = sa.data; D.prodSabores = ps.data; D.metodosPunto = mpp.data;
+    D.puntos = pv.data; D.metodos = mp.data; D.productos = pr.data; D.sabores = sa.data; D.prodSabores = ps.data; D.metodosPunto = mpp.data; D.noDisponible = nd.data;
 
     const opts = (arr, val, txt) => arr.map((x) => `<option value="${esc(x[val])}">${esc(x[txt])}</option>`).join('');
     $('#f-punto').innerHTML = '<option value="">Todos</option>' + opts(D.puntos, 'id', 'nombre');
     $('#f-metodo').innerHTML = '<option value="">Todos</option>' + opts(D.metodos, 'id', 'nombre');
     $('#e-punto').innerHTML = opts(D.puntos, 'id', 'nombre');
-    pintarCatalogo(); pintarMetodosPunto();
+    const dSel = $('#d-punto').value;
+    $('#d-punto').innerHTML = opts(D.puntos, 'id', 'nombre');
+    if (dSel) $('#d-punto').value = dSel;
+    pintarCatalogo(); pintarMetodosPunto(); pintarDisponibilidad();
   }
 
   // =====================================================================
@@ -303,6 +307,31 @@
     const { error } = c.checked
       ? await sb.from('producto_sabores').insert({ producto_id, sabor_id })
       : await sb.from('producto_sabores').delete().match({ producto_id, sabor_id });
+    if (error) { c.checked = !c.checked; return aviso('No se guardó: ' + error.message, 'error'); }
+    aviso('Guardado'); cargarCatalogo();
+  });
+
+  // =====================================================================
+  // Qué se vende en cada punto (combinaciones producto-sabor)
+  // =====================================================================
+  function pintarDisponibilidad() {
+    const punto = $('#d-punto').value; if (!punto) return;
+    const valida = (p, s) => D.prodSabores.some((x) => x.producto_id === p && x.sabor_id === s);
+    const vende = (p, s) => !D.noDisponible.some((x) => x.punto_id === punto && x.producto_id === p && x.sabor_id === s);
+    const sabores = D.sabores.filter((s) => s.activo);
+    $('#d-matriz').innerHTML = `<table class="tabla"><thead><tr><th>Producto</th>${sabores.map((s) => `<th>${esc(s.nombre)}</th>`).join('')}</tr></thead><tbody>
+      ${D.productos.filter((p) => p.activo).map((p) => `<tr><td>${esc(p.nombre)}</td>${sabores.map((s) => valida(p.id, s.id)
+        ? `<td><input type="checkbox" class="check" data-disp="${p.id}:${s.id}" ${vende(p.id, s.id) ? 'checked' : ''} aria-label="${esc(p.nombre)} ${esc(s.nombre)}"></td>`
+        : '<td style="color:#c9bdb0">—</td>').join('')}</tr>`).join('')}</tbody></table>`;
+  }
+  $('#d-punto').addEventListener('change', pintarDisponibilidad);
+  $('#d-matriz').addEventListener('change', async (ev) => {
+    const c = ev.target.closest('[data-disp]'); if (!c) return;
+    const punto_id = $('#d-punto').value;
+    const [producto_id, sabor_id] = c.dataset.disp.split(':').map(Number);
+    const { error } = c.checked
+      ? await sb.from('no_disponible_punto').delete().match({ punto_id, producto_id, sabor_id })
+      : await sb.from('no_disponible_punto').insert({ punto_id, producto_id, sabor_id });
     if (error) { c.checked = !c.checked; return aviso('No se guardó: ' + error.message, 'error'); }
     aviso('Guardado'); cargarCatalogo();
   });

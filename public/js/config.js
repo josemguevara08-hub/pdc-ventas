@@ -5,7 +5,7 @@
 // NUNCA pongas aquí la clave "service_role" ni contraseñas.
 // =====================================================================
 window.PDC_CONFIG = {
-  version: '1.1.0',
+  version: '1.2.0',
   supabaseUrl: 'https://uuurvehklcacrhnkhadk.supabase.co',
   supabaseKey: 'sb_publishable__5CH8jEq2olts2pK5epTHA_4YN-rT6C',
 
@@ -16,9 +16,9 @@ window.PDC_CONFIG = {
   fotos: {
     1: 'img/rebanada.webp',        // Tarta de Cuchara
     2: 'img/tarta_entera.webp',    // Tarta Chica Clásica
-    3: 'img/tarta_chocolate.webp', // Tarta Chica Sabores
-    4: 'img/tarta_entera.webp',    // Tarta Grande Clásica
-    5: 'img/tarta_chocolate.webp'  // Tarta Grande Sabores
+    3: 'img/nutella_chica.webp',   // Tarta Chica Sabores
+    4: 'img/clasica_grande.webp',  // Tarta Grande Clásica
+    5: 'img/lotus_grande.webp'     // Tarta Grande Sabores
   },
   fotoGenerica: 'img/tarta_entera.webp',
 
