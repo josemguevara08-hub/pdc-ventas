@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el dispositivo para que abra aunque no haya internet.
 // Al publicar una versión nueva, cambia el número de VERSION.
-const VERSION = 'pdc-v1.3.1';
+const VERSION = 'pdc-v1.3.2';
 const ARCHIVOS = [
   './', 'css/estilos.css', 'js/config.js', 'js/app.js', 'js/lib/supabase.js',
   'img/logo.svg', 'img/monograma.svg', 'img/icon-192.png',
@@ -24,22 +24,33 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return; // la base de datos nunca pasa por aquí
 
-  // Páginas y código (HTML, JS, CSS, manifest): primero internet, para que los cambios lleguen de inmediato.
-  // Sin internet, se usa la copia guardada.
-  const esCodigo = req.mode === 'navigate' || /\.(js|css|webmanifest|html)$/.test(url.pathname) || url.pathname === '/';
+  const esPagina = req.mode === 'navigate';
+  const esCodigo = esPagina || /\.(js|css|webmanifest|html)$/.test(url.pathname) || url.pathname === '/';
+
   if (esCodigo) {
-    e.respondWith(fetch(req, { cache: 'no-store' }).then((r) => {
-      if (r.ok && !r.redirected) { const copia = r.clone(); caches.open(VERSION).then((c) => c.put(req.mode === 'navigate' ? './' : req, copia)); }
+    // Páginas y código: primero internet (para recibir actualizaciones); sin internet, la copia guardada.
+    // Si internet tarda más de 6 segundos y hay copia guardada, se usa la copia para no dejar la pantalla cargando.
+    const clave = esPagina ? new URL(url.pathname, self.location.origin).href : req.url;  // cada página con su propia copia
+    const red = fetch(esPagina ? req : new Request(req.url, { cache: 'no-cache' })).then((r) => {
+      if (r.ok && !r.redirected) { const copia = r.clone(); caches.open(VERSION).then((c) => c.put(clave, copia)).catch(() => {}); }
       return r;
-    }).catch(() => caches.match(req).then((r) => r || (req.mode === 'navigate' ? caches.match('./') : undefined))));
+    });
+    const respaldo = () => caches.match(clave).then((r) => r || caches.match(req));
+    const conLimite = new Promise((resolve) => {
+      const t = setTimeout(() => respaldo().then((r) => { if (r) resolve(r); }), 6000);
+      red.then((r) => { clearTimeout(t); resolve(r); })
+         .catch(() => { clearTimeout(t); respaldo().then((r) => resolve(r || Response.error())); });
+    });
+    e.respondWith(conLimite);
     return;
   }
-  // Imágenes y tipografías: copia guardada y se actualiza en segundo plano
+
+  // Imágenes: copia guardada y se actualiza en segundo plano
   e.respondWith(caches.match(req).then((guardada) => {
     const red = fetch(req).then((r) => {
-      if (r.ok) { const copia = r.clone(); caches.open(VERSION).then((c) => c.put(req, copia)); }
+      if (r.ok) { const copia = r.clone(); caches.open(VERSION).then((c) => c.put(req, copia)).catch(() => {}); }
       return r;
-    }).catch(() => guardada);
+    }).catch(() => guardada || Response.error());
     return guardada || red;
   }));
 });
