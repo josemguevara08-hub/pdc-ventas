@@ -54,13 +54,13 @@
     $('#l-clave').value = '';
     await entrarPanel();
   });
-  $('#salir').addEventListener('click', async () => { await sb.auth.signOut(); mostrarLogin(); });
+  $('#salir').addEventListener('click', async () => { await sb.auth.signOut({ scope: 'local' }); mostrarLogin(); });
 
   async function entrarPanel() {
     const { data, error } = await sb.rpc('mi_contexto');
     const ctx = data && data[0];
     if (error || !ctx || ctx.rol !== 'admin') {
-      await sb.auth.signOut();
+      await sb.auth.signOut({ scope: 'local' });
       return mostrarLogin(error ? 'No hay conexión.' : 'Esta cuenta no es de administrador.');
     }
     $('#v-login').hidden = true; $('#v-panel').hidden = false;

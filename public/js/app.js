@@ -109,11 +109,11 @@
     } else {
       const ctx = data && data[0];
       if (!ctx) {
-        await sb.auth.signOut();
+        await sb.auth.signOut({ scope: 'local' });
         $('#l-error').textContent = 'Esta cuenta no tiene un punto de venta asignado. Avisa al administrador.';
         return mostrar('login');
       }
-      if (ctx.rol === 'admin') { await sb.auth.signOut(); window.location.href = 'admin.html'; return; }
+      if (ctx.rol === 'admin') { await sb.auth.signOut({ scope: 'local' }); window.location.href = 'admin.html'; return; }
       E.ctx = ctx; LS.set(K.ctx, ctx);
     }
     const t = LS.get(K.turno);
@@ -176,7 +176,7 @@
   $('#p-salir').addEventListener('click', async () => {
     if (E.cola.length) { aviso('Hay ventas guardadas sin enviar. Conéctate a internet antes de cerrar sesión.', 'error'); return; }
     if (!await preguntar('¿Cerrar la sesión de este dispositivo? Después habrá que escribir usuario y contraseña del punto.', 'Cerrar sesión', 'Cancelar', true)) return;
-    await sb.auth.signOut();
+    await sb.auth.signOut({ scope: 'local' });
     [K.ctx, K.turno, K.catalogo, K.ticket].forEach(LS.del);
     E.ctx = null; E.turno = null; E.ticket = [];
     mostrar('login');
