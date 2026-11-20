@@ -20,6 +20,7 @@
   };
   const K = { ctx: 'pdc_ctx', turno: 'pdc_turno', catalogo: 'pdc_catalogo', cola: 'pdc_cola', ticket: 'pdc_ticket' };
 
+  const pesos = (n) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n || 0);
   const hoyCDMX = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const horaCDMX = (d) => new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
   const fechaCDMX = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
@@ -57,7 +58,7 @@
 
   // ---------- Pantallas ----------
   function mostrar(v) {
-    ['login', 'pin', 'venta', 'hoy', 'agotados'].forEach((n) => { $('#v-' + n).hidden = n !== v; });
+    ['login', 'pin', 'venta', 'hoy', 'agotados', 'conteo', 'stock'].forEach((n) => { $('#v-' + n).hidden = n !== v; });
     window.scrollTo(0, 0);
   }
 
@@ -205,6 +206,9 @@
       E.ticket = E.ticket.filter((l) => buscar(l.producto_id, l.sabor_id).sabor);
       guardarTicket();
       pintarProductos(); pintarTicket();
+      if (!$('#m-sabores').hidden) pintarSabores();
+      if (!$('#v-stock').hidden) pintarStock();
+      revisarInventarioObligatorio();
     } else if (!E.catalogo) {
       $('#productos').innerHTML = '<p class="vacio">No se pudo cargar el catálogo. Revisa el internet.</p>';
     }
@@ -218,15 +222,42 @@
   const piezasDe = (pid) => E.ticket.filter((l) => l.producto_id === pid).reduce((a, l) => a + l.cantidad, 0);
   const piezasDeSabor = (pid, sid) => (E.ticket.find((l) => l.producto_id === pid && l.sabor_id === sid) || { cantidad: 0 }).cantidad;
   const totalPiezas = () => E.ticket.reduce((a, l) => a + l.cantidad, 0);
+  const totalDinero = () => E.ticket.reduce((a, l) => {
+    const { producto } = buscar(l.producto_id, l.sabor_id);
+    return a + (producto ? Number(producto.precio) * l.cantidad : 0);
+  }, 0);
+
+  // ---------- Inventario ----------
+  const usaInv = () => !!(E.catalogo && E.catalogo.inventario && E.catalogo.inventario.usa);
+  const invRegistrado = () => !!(E.catalogo && E.catalogo.inventario && E.catalogo.inventario.registrado);
+  // piezas de ventas guardadas en el dispositivo que la base de datos aún no descuenta
+  function pendientesCola(pid, sid) {
+    return E.cola.filter((v) => !v.error && E.ctx && v.punto === E.ctx.punto_id)
+      .reduce((a, v) => a + v.items.filter((i) => i.producto_id === pid && i.sabor_id === sid).reduce((b, i) => b + i.cantidad, 0), 0);
+  }
+  // cuántas quedan (sin contar la venta en curso); null = este punto no lleva inventario
+  function disponibles(p, s) {
+    if (s.quedan === null || s.quedan === undefined) return null;
+    return Math.max(0, Number(s.quedan) - pendientesCola(p.id, s.id));
+  }
+  const estaAgotado = (p, s) => !!s.agotado || disponibles(p, s) === 0;
+  function puedeAgregar(p, s) { const d = disponibles(p, s); return d === null || piezasDeSabor(p.id, s.id) < d; }
+  function revisarInventarioObligatorio() {
+    if (usaInv() && !invRegistrado() && E.turno && !$('#v-venta').hidden && !E.ticket.length && $('#m-resumen').hidden) {
+      abrirConteo('inicial');
+    }
+  }
 
   function pintarProductos() {
     if (!E.catalogo) return;
+    $('#b-agotados').textContent = usaInv() ? 'Inventario' : 'Agotados';
     $('#productos').innerHTML = E.catalogo.productos.map((p) => {
       const n = piezasDe(p.id);
       const foto = C.fotos[p.id] || C.fotoGenerica;
       const color = C.colores[p.id] || 'azul';
       return `<button class="producto a-${color}" data-pid="${p.id}">
           <div class="foto"><img src="${esc(foto)}" alt="" loading="lazy"></div>
+          <span class="precio">${pesos(p.precio)}</span>
           <div class="nombre titulo">${esc(p.nombre)}</div>
           ${n ? `<span class="contador" aria-label="${n} en esta venta">${n}</span>` : ''}
         </button>`;
@@ -236,11 +267,12 @@
   $('#productos').addEventListener('click', (ev) => {
     const b = ev.target.closest('.producto'); if (!b) return;
     const p = E.catalogo.productos.find((x) => x.id === Number(b.dataset.pid)); if (!p) return;
-    const disponibles = p.sabores.filter((s) => !s.agotado);
     if (!p.sabores.length) return aviso('Este producto no tiene sabores configurados', 'error');
     if (p.sabores.length === 1) {
-      if (!disponibles.length) return aviso(`${p.nombre}: agotado hoy`, 'error');
-      agregar(p.id, p.sabores[0].id);
+      const s = p.sabores[0];
+      if (estaAgotado(p, s)) return usaInv() ? abrirAjuste(p, s, 'reactivar') : aviso(`${p.nombre}: agotado hoy`, 'error');
+      if (!puedeAgregar(p, s)) return aviso(`Solo quedan ${disponibles(p, s)} de ${p.nombre}`, 'error');
+      agregar(p.id, s.id);
       aviso(`+1 ${p.nombre}`);
       return;
     }
@@ -267,12 +299,20 @@
     $('#m-sabores').hidden = false;
   }
   function pintarSabores() {
-    const p = E.productoAbierto; if (!p) return;
+    if (!E.productoAbierto) return;
+    // usar siempre la versión más reciente del catálogo (existencias actualizadas)
+    const fresco = E.catalogo && E.catalogo.productos.find((x) => x.id === E.productoAbierto.id);
+    if (!fresco) { cerrarSabores(); return; }
+    E.productoAbierto = fresco;
+    const p = fresco;
     $('#s-lista').innerHTML = p.sabores.map((s) => {
       const n = piezasDeSabor(p.id, s.id);
+      const ag = estaAgotado(p, s);
+      const d = disponibles(p, s);
+      const quedan = !ag && d !== null ? `<span class="quedan">quedan ${d - n}</span>` : '';
       return `<div class="fila-sabor">
-          <button class="sabor ${n ? 'con-cantidad' : ''} ${s.agotado ? 'agotado' : ''}" data-sid="${s.id}">
-            ${esc(s.nombre)}${n ? `<span class="num">${n}</span>` : ''}
+          <button class="sabor ${n ? 'con-cantidad' : ''} ${ag ? 'agotado' : ''} ${ag && usaInv() ? 'reactivable' : ''}" data-sid="${s.id}">
+            ${esc(s.nombre)}${n ? `<span class="num">${n}</span>` : ''}${quedan}
           </button>
           ${n ? `<button class="sabor-quitar" data-quitar="${s.id}">− Quitar 1</button>` : ''}
         </div>`;
@@ -282,8 +322,11 @@
     const p = E.productoAbierto; if (!p) return;
     const q = ev.target.closest('[data-quitar]');
     if (q) { quitar(p.id, Number(q.dataset.quitar)); return pintarSabores(); }
-    const b = ev.target.closest('.sabor'); if (!b || b.classList.contains('agotado')) return;
-    agregar(p.id, Number(b.dataset.sid)); pintarSabores();
+    const b = ev.target.closest('.sabor'); if (!b) return;
+    const s = p.sabores.find((x) => x.id === Number(b.dataset.sid)); if (!s) return;
+    if (estaAgotado(p, s)) { if (usaInv()) abrirAjuste(p, s, 'reactivar'); return; }
+    if (!puedeAgregar(p, s)) return aviso(`Solo quedan ${disponibles(p, s)} de ${s.nombre}`, 'error');
+    agregar(p.id, s.id); pintarSabores();
   });
   $('#s-listo').addEventListener('click', cerrarSabores);
   $('#m-sabores').addEventListener('click', (ev) => { if (ev.target.id === 'm-sabores') cerrarSabores(); });
@@ -306,6 +349,10 @@
     $('#t-lineas').innerHTML = htmlLineas();
     $('#t-continuar').disabled = !n; $('#i-continuar').disabled = !n;
     $('#i-num').textContent = n; $('#i-txt').textContent = n === 1 ? 'pieza' : 'piezas';
+    const total = totalDinero();
+    $('#i-total').textContent = n ? pesos(total) : '';
+    $('#t-total').hidden = !n; $('#t-total b').textContent = pesos(total);
+    $('#r-total b').textContent = pesos(total);
     if (!$('#m-resumen').hidden) {
       if (!n) cerrarResumen(); else { $('#r-lineas').innerHTML = htmlLineas(); actualizarConfirmar(); }
     }
@@ -364,6 +411,7 @@
                  producto: producto ? producto.nombre : '', sabor: sabor ? sabor.nombre : '' };
       })
     };
+    const totalVenta = totalDinero();
     // 1) Primero se guarda en el dispositivo: aunque se vaya el internet, no se pierde.
     E.cola.push(venta); guardarCola();
     E.ticket = []; guardarTicket();
@@ -374,7 +422,8 @@
     E.guardando = false; E.metodo = null;
     cerrarResumen(); pintarProductos(); pintarTicket(); pintarPendientes();
     const piezas = venta.items.reduce((a, i) => a + i.cantidad, 0);
-    const txtPiezas = `${piezas} ${piezas === 1 ? 'pieza' : 'piezas'}, pago con ${venta.metodo_nombre.toLowerCase()}`;
+    const txtPiezas = `${piezas} ${piezas === 1 ? 'pieza' : 'piezas'} - ${pesos(totalVenta)} - ${venta.metodo_nombre}`;
+    if (r.ok) cargarCatalogo();
     if (r.ok) confirmacion('ok', `#${r.folio}`, 'Venta guardada', txtPiezas);
     else if (r.rechazada) aviso('No se guardó: ' + r.mensaje + '. Revísala en "Ventas de hoy".', 'error');
     else confirmacion('pendiente', 'Sin internet', 'Venta guardada en este dispositivo', 'Se enviará sola cuando vuelva la conexión.');
@@ -432,12 +481,15 @@
     const porEnviar = E.cola.filter((v) => !v.error);
     if (!porEnviar.length) return;
     E.sincronizando = true;
+    let enviadas = 0;
     for (const v of porEnviar) {
       const r = await enviar(v);
+      if (r.ok) enviadas += 1;
       if (!r.ok && !r.rechazada) break;   // sigue sin internet: se intenta más tarde
     }
     E.sincronizando = false;
     pintarPendientes();
+    if (enviadas && E.ctx) cargarCatalogo();
   }
   setInterval(() => {
     sincronizar();
@@ -460,7 +512,7 @@
     mostrarPin();
   });
   $('#b-hoy').addEventListener('click', abrirHoy);
-  $('#b-agotados').addEventListener('click', abrirAgotados);
+  $('#b-agotados').addEventListener('click', () => (usaInv() ? abrirStock() : abrirAgotados()));
   $$('[data-ir="venta"]').forEach((b) => b.addEventListener('click', () => { mostrar('venta'); pintarProductos(); }));
 
   // =====================================================================
@@ -480,6 +532,11 @@
     const piezasLoc = locales.filter((v) => !v.error).reduce((a, v) => a + v.items.reduce((b, i) => b + i.cantidad, 0), 0);
     $('#h-ventas').textContent = activas.length + locales.filter((v) => !v.error).length;
     $('#h-piezas').textContent = piezasServ + piezasLoc;
+    const dineroServ = activas.reduce((a, v) => a + (v.items || []).reduce((b, i) => b + Number(i.importe || 0), 0), 0);
+    const dineroLoc = locales.filter((v) => !v.error).reduce((a, v) => a + v.items.reduce((b, i) => {
+      const { producto } = buscar(i.producto_id, i.sabor_id); return b + (producto ? Number(producto.precio) * i.cantidad : 0);
+    }, 0), 0);
+    $('#h-total').textContent = pesos(dineroServ + dineroLoc);
 
     const ahora = Date.now();
     const htmlLocal = locales.map((v) => `
@@ -518,7 +575,7 @@
     if (c) {
       if (!await preguntar(`¿Cancelar la venta #${c.dataset.folio}? Quedará marcada como cancelada.`, 'Sí, cancelar', 'No', true)) return;
       const { error } = await sb.rpc('cancelar_venta', { p_id: c.dataset.cancelar, p_empleado_id: E.turno.empleado_id });
-      if (error) aviso(error.message, 'error'); else aviso('Venta cancelada');
+      if (error) aviso(error.message, 'error'); else { aviso('Venta cancelada'); cargarCatalogo(); }
       return abrirHoy();
     }
     const d = ev.target.closest('[data-descartar]');
@@ -565,6 +622,141 @@
     LS.set(K.catalogo, { punto: E.ctx.punto_id, data: E.catalogo });
     pintarAgotados();
     aviso(`${sabor.nombre} en ${producto.nombre}: ${sabor.agotado ? 'agotado' : 'disponible'}`);
+  });
+
+  // =====================================================================
+  // Inventario: conteo inicial, "llegó más producto", existencias y corrección
+  // =====================================================================
+  const conteo = { modo: null, lote: null, cuentas: {}, guardando: false };
+  const claveK = (pid, sid) => `${pid}:${sid}`;
+  const totalConteo = () => Object.values(conteo.cuentas).reduce((a, n) => a + n, 0);
+
+  function abrirConteo(modo) {
+    if (!E.catalogo) return;
+    conteo.modo = modo; conteo.lote = uuid(); conteo.cuentas = {}; conteo.guardando = false;
+    $('#k-titulo').textContent = modo === 'inicial' ? 'Inventario de hoy' : 'Llegó más producto';
+    $('#k-ayuda').textContent = modo === 'inicial'
+      ? `Antes de vender, cuenta lo que hay en el carrito. Toca cada sabor una vez por cada pieza. Lo que no cuentes quedará agotado.`
+      : 'Toca cada sabor una vez por cada pieza que llegó.';
+    $('#k-cancelar').hidden = modo === 'inicial';
+    pintarConteo(); mostrar('conteo');
+  }
+  function pintarConteo() {
+    $('#k-lista').innerHTML = E.catalogo.productos.map((p) => `
+      <div class="conteo-producto">
+        <h3 class="titulo">${esc(p.nombre)}</h3>
+        <div class="sabores">${p.sabores.map((s) => {
+          const n = conteo.cuentas[claveK(p.id, s.id)] || 0;
+          return `<div class="fila-sabor">
+              <button class="sabor ${n ? 'con-cantidad' : ''}" data-k="${claveK(p.id, s.id)}">${esc(s.nombre)}${n ? `<span class="num">${n}</span>` : ''}</button>
+              ${n ? `<button class="sabor-quitar" data-kq="${claveK(p.id, s.id)}">− Quitar 1</button>` : ''}
+            </div>`;
+        }).join('')}</div>
+      </div>`).join('');
+    const t = totalConteo();
+    $('#k-num').textContent = t;
+    const b = $('#k-guardar');
+    b.disabled = conteo.guardando || (conteo.modo === 'resurtido' && !t);
+    b.textContent = conteo.guardando ? 'Guardando…' : 'Guardar';
+  }
+  $('#k-lista').addEventListener('click', (ev) => {
+    const q = ev.target.closest('[data-kq]');
+    if (q) { const k = q.dataset.kq; conteo.cuentas[k] = Math.max(0, (conteo.cuentas[k] || 0) - 1); if (!conteo.cuentas[k]) delete conteo.cuentas[k]; return pintarConteo(); }
+    const b = ev.target.closest('[data-k]'); if (!b) return;
+    const k = b.dataset.k; conteo.cuentas[k] = Math.min(999, (conteo.cuentas[k] || 0) + 1);
+    pintarConteo();
+  });
+  $('#k-cancelar').addEventListener('click', () => { abrirStock(); });
+  $('#k-guardar').addEventListener('click', async () => {
+    if (conteo.guardando) return;
+    const t = totalConteo();
+    if (conteo.modo === 'inicial' &&
+        !await preguntar(`¿Guardar el inventario de hoy? Contaste ${t} ${t === 1 ? 'pieza' : 'piezas'}. Lo que no contaste quedará agotado.`, 'Sí, guardar', 'Seguir contando')) return;
+    const items = [];
+    E.catalogo.productos.forEach((p) => p.sabores.forEach((s) => {
+      const n = conteo.cuentas[claveK(p.id, s.id)] || 0;
+      if (conteo.modo === 'inicial' || n) items.push({ producto_id: p.id, sabor_id: s.id, cantidad: n });
+    }));
+    conteo.guardando = true; pintarConteo();
+    const { error, status } = await sb.rpc('registrar_inventario', {
+      p_lote: conteo.lote, p_tipo: conteo.modo, p_items: items, p_empleado_id: E.turno.empleado_id
+    });
+    conteo.guardando = false;
+    if (error) {
+      pintarConteo();
+      if (/ya está registrado/i.test(error.message)) { aviso('El inventario de hoy ya estaba registrado.'); await cargarCatalogo(); return abrirVenta(); }
+      return aviso(esErrorDeRed(error, status) ? 'Sin internet: no se pudo guardar. Intenta de nuevo.' : error.message, 'error');
+    }
+    aviso(conteo.modo === 'inicial' ? 'Inventario guardado' : 'Producto agregado al inventario');
+    const modo = conteo.modo;
+    await cargarCatalogo();
+    if (modo === 'inicial') abrirVenta(); else abrirStock();
+  });
+
+  async function abrirStock() {
+    mostrar('stock');
+    if (E.catalogo) pintarStock();
+    await cargarCatalogo();
+  }
+  function pintarStock() {
+    if (!E.catalogo) return;
+    $('#st-lista').innerHTML = E.catalogo.productos.map((p) => `
+      <div class="stock-producto">
+        <h3 class="titulo">${esc(p.nombre)}</h3>
+        ${p.sabores.map((s) => {
+          const d = disponibles(p, s);
+          const n = d === null ? '—' : d;
+          return `<div class="stock-fila ${n === 0 ? 'cero' : ''}">
+              <span class="nombre-sabor">${esc(s.nombre)}</span>
+              <span class="cuantas">${n}</span>
+              <button class="btn btn-secundario" data-corregir="${claveK(p.id, s.id)}">Corregir</button>
+            </div>`;
+        }).join('')}
+      </div>`).join('');
+  }
+  $('#st-resurtir').addEventListener('click', () => abrirConteo('resurtido'));
+  $('#st-lista').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-corregir]'); if (!b) return;
+    const [pid, sid] = b.dataset.corregir.split(':').map(Number);
+    const { producto, sabor } = buscar(pid, sid);
+    if (producto && sabor) abrirAjuste(producto, sabor, 'corregir');
+  });
+
+  const ajuste = { p: null, s: null, n: 0, guardando: false };
+  function abrirAjuste(p, s, modo) {
+    if (!invRegistrado()) return aviso('Primero registra el inventario de hoy', 'error');
+    ajuste.p = p; ajuste.s = s; ajuste.guardando = false;
+    const d = disponibles(p, s);
+    ajuste.n = modo === 'reactivar' ? 0 : (s.agotado ? 0 : (d || 0));
+    $('#a-titulo').textContent = `${p.nombre} - ${s.nombre}`;
+    $('#a-ayuda').textContent = modo === 'reactivar'
+      ? 'Está agotado en la app. ¿Cuántas piezas tienes de verdad? Toca + por cada una.'
+      : '¿Cuántas piezas hay de verdad en el carrito?';
+    pintarAjuste();
+    $('#m-ajuste').hidden = false;
+  }
+  function pintarAjuste() {
+    $('#a-num').textContent = ajuste.n;
+    $('#a-guardar').disabled = ajuste.guardando;
+    $('#a-guardar').textContent = ajuste.guardando ? 'Guardando…' : 'Guardar';
+  }
+  $('#a-mas').addEventListener('click', () => { ajuste.n = Math.min(999, ajuste.n + 1); pintarAjuste(); });
+  $('#a-menos').addEventListener('click', () => { ajuste.n = Math.max(0, ajuste.n - 1); pintarAjuste(); });
+  $('#a-cancelar').addEventListener('click', () => { $('#m-ajuste').hidden = true; });
+  $('#a-guardar').addEventListener('click', async () => {
+    if (ajuste.guardando) return;
+    ajuste.guardando = true; pintarAjuste();
+    // las ventas guardadas en el dispositivo aún no descontadas se suman, para que al enviarse quede el número real
+    const real = ajuste.n + pendientesCola(ajuste.p.id, ajuste.s.id);
+    const { error, status } = await sb.rpc('registrar_inventario', {
+      p_lote: uuid(), p_tipo: 'ajuste',
+      p_items: [{ producto_id: ajuste.p.id, sabor_id: ajuste.s.id, real }], p_empleado_id: E.turno.empleado_id
+    });
+    ajuste.guardando = false; pintarAjuste();
+    if (error) return aviso(esErrorDeRed(error, status) ? 'Sin internet: no se pudo guardar.' : error.message, 'error');
+    $('#m-ajuste').hidden = true;
+    aviso(`${ajuste.s.nombre}: ${ajuste.n} ${ajuste.n === 1 ? 'pieza' : 'piezas'}`);
+    await cargarCatalogo();
   });
 
   sb.auth.onAuthStateChange((evento) => {

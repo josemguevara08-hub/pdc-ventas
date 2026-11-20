@@ -35,6 +35,7 @@
     <nav class="pestanas" id="pestanas">
       <button data-tab="ventas" class="activa">Ventas</button>
       <button data-tab="catalogo">Productos y precios</button>
+      <button data-tab="inventario">Inventario</button>
       <button data-tab="empleados">Empleados</button>
       <button data-tab="puntos">Puntos y pagos</button>
     </nav>
@@ -52,7 +53,7 @@
             <div class="campo"><label for="f-producto">Producto</label><select id="f-producto"><option value="">Todos</option></select></div>
             <div class="campo"><label for="f-sabor">Sabor</label><select id="f-sabor"><option value="">Todos</option></select></div>
             <div class="campo"><label for="f-estado">Estado</label>
-              <select id="f-estado"><option value="activa">Solo activas</option><option value="cancelada">Solo canceladas</option><option value="">Todas</option></select></div>
+              <select id="f-estado"><option value="">Todas</option><option value="activa">Solo activas</option><option value="cancelada">Solo canceladas</option></select></div>
           </div>
           <div class="filtros-botones">
             <button class="btn btn-primario" id="b-consultar">Consultar</button>
@@ -89,6 +90,24 @@
           <p class="nota">Cambiar un precio solo afecta las ventas nuevas. Las anteriores conservan el precio con el que se registraron.</p></div>
         <div class="panel"><h2 class="titulo">Sabores</h2><div class="tabla-cont" id="c-sabores"></div></div>
         <div class="panel"><h2 class="titulo">Qué sabores tiene cada producto</h2><div class="tabla-cont" id="c-matriz"></div></div>
+      </div>
+
+      <!-- ===== Inventario ===== -->
+      <div data-panel="inventario" hidden>
+        <div class="panel">
+          <h2 class="titulo">Inventario de los carritos</h2>
+          <div class="filtros">
+            <div class="campo"><label for="i-desde">Desde</label><input type="date" id="i-desde"></div>
+            <div class="campo"><label for="i-hasta">Hasta</label><input type="date" id="i-hasta"></div>
+            <div class="campo"><label for="i-punto">Carrito</label><select id="i-punto"><option value="">Todos</option></select></div>
+          </div>
+          <div class="filtros-botones">
+            <button class="btn btn-primario" id="i-consultar">Consultar</button>
+            <button class="btn btn-secundario" id="i-excel">Descargar Excel</button>
+          </div>
+          <p class="nota">Inicial = lo que contaron al abrir. Llegó = resurtidos del día. Ajustes = correcciones a mano (positivas o negativas). Vendido = solo ventas activas; si se cancela una venta, sus piezas regresan. Quedan = Inicial + Llegó + Ajustes - Vendido.</p>
+        </div>
+        <div class="panel"><div class="tabla-cont" id="i-tabla"></div></div>
       </div>
 
       <!-- ===== Empleados ===== -->

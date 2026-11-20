@@ -79,12 +79,13 @@
       <aside class="ticket">
         <h2 class="titulo">Esta venta</h2>
         <ul class="lineas" id="t-lineas"></ul>
+        <div class="total-venta" id="t-total" hidden><span>Total</span><b></b></div>
         <button class="btn btn-primario btn-bloque" id="t-continuar" disabled>Revisar venta</button>
       </aside>
     </main>
 
     <div class="barra-inferior">
-      <div class="resumen-corto"><span class="titulo" id="i-num">0</span><span id="i-txt">piezas</span></div>
+      <div class="resumen-corto"><span class="titulo" id="i-num">0</span><span id="i-txt">piezas</span><span class="total-corto" id="i-total"></span></div>
       <button class="btn btn-primario" id="i-continuar" disabled>Revisar venta</button>
     </div>
   </section>
@@ -99,6 +100,7 @@
       <div class="totales-hoy">
         <div><span>Ventas</span><b id="h-ventas">0</b></div>
         <div><span>Piezas</span><b id="h-piezas">0</b></div>
+        <div><span>Total</span><b id="h-total">$0</b></div>
       </div>
       <div id="h-lista"></div>
     </div>
@@ -114,6 +116,35 @@
       <p class="nota" style="margin:0 0 12px">Toca un sabor para cambiarlo. Solo aplica a este punto y a hoy; mañana todo vuelve a estar disponible.</p>
       <div class="leyenda"><span class="disp">Disponible</span><span class="ago">Agotado</span></div>
       <div id="a-lista"></div>
+    </div>
+  </section>
+
+  <!-- 6 · Conteo de inventario (al iniciar el día y cuando llega más producto) -->
+  <section id="v-conteo" class="vista" hidden>
+    <div class="contenido">
+      <div class="volver">
+        <h1 class="titulo" id="k-titulo">Inventario de hoy</h1>
+        <button class="btn btn-secundario" id="k-cancelar" hidden>Cancelar</button>
+      </div>
+      <p class="nota" id="k-ayuda" style="margin:0 0 16px"></p>
+      <div id="k-lista"></div>
+    </div>
+    <div class="barra-inferior siempre">
+      <div class="resumen-corto"><span class="titulo" id="k-num">0</span><span>piezas contadas</span></div>
+      <button class="btn btn-primario" id="k-guardar">Guardar</button>
+    </div>
+  </section>
+
+  <!-- 7 · Inventario del día (lo que queda, resurtir, corregir) -->
+  <section id="v-stock" class="vista" hidden>
+    <div class="contenido">
+      <div class="volver">
+        <h1 class="titulo">Inventario de hoy</h1>
+        <button class="btn btn-secundario" data-ir="venta">Volver</button>
+      </div>
+      <button class="btn btn-primario btn-bloque" id="st-resurtir" style="margin-bottom:8px">Llegó más producto</button>
+      <p class="nota" style="margin:0 0 6px">Si algo no cuadra con lo que tienes en el carrito, toca <b>Corregir</b> y pon cuántas piezas hay de verdad.</p>
+      <div id="st-lista"></div>
     </div>
   </section>
 
@@ -134,11 +165,31 @@
     <div class="hoja" role="dialog" aria-modal="true">
       <div class="hoja-cabecera"><h2 class="titulo">Revisa la venta</h2></div>
       <ul class="lineas revisar-lineas" id="r-lineas"></ul>
+      <div class="total-venta grande" id="r-total"><span>Total</span><b></b></div>
       <h3 class="pregunta-pago">¿Cómo pagó?</h3>
       <div class="metodos" id="r-metodos"></div>
       <div class="botones-hoja">
         <button class="btn btn-primario btn-bloque" id="r-confirmar" disabled>Guardar venta</button>
         <button class="btn btn-secundario btn-bloque" id="r-seguir">Seguir agregando</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hoja: corregir / reactivar un sabor -->
+  <div class="fondo-modal" id="m-ajuste" hidden>
+    <div class="hoja" role="dialog" aria-modal="true">
+      <div class="hoja-cabecera">
+        <h2 class="titulo" id="a-titulo"></h2>
+        <div class="ayuda" id="a-ayuda">¿Cuántas piezas tienes de verdad?</div>
+      </div>
+      <div class="contador-grande">
+        <button class="menos-grande" id="a-menos" aria-label="Una menos">−</button>
+        <span class="titulo" id="a-num">0</span>
+        <button class="mas-grande" id="a-mas" aria-label="Una más">+</button>
+      </div>
+      <div class="botones-hoja">
+        <button class="btn btn-primario btn-bloque" id="a-guardar">Guardar</button>
+        <button class="btn btn-secundario btn-bloque" id="a-cancelar">Cancelar</button>
       </div>
     </div>
   </div>

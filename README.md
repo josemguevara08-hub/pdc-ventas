@@ -14,17 +14,19 @@ App web para que el personal de Pedazo de Cielo registre qué se vende en cada p
 ## Cómo se usa (personal)
 1. Abrir la URL en el dispositivo del punto. La primera vez: usuario del punto (ej. `artz`) y contraseña. Queda guardado.
 2. Al iniciar turno: PIN de 4 dígitos.
-3. Tocar producto → tocar sabor (una vez por pieza) → **Listo** → **Continuar** → elegir cómo pagó → **Confirmar venta**.
-4. Pantalla verde = guardada en la base de datos. Pantalla crema = guardada en el dispositivo; se envía sola al volver el internet.
-5. **Ventas de hoy**: ver lo registrado y cancelar una venta propia durante los primeros 10 minutos.
-6. **Agotados**: marcar un sabor agotado (solo ese punto, solo ese día).
-7. **Cambiar**: terminar turno para que entre otro empleado.
+3. Carritos (Artz, Mitikah, Satélite, Polanco): lo primero del día es contar el inventario (tocar cada sabor una vez por pieza). Sin esto no se puede vender. Un sabor que llega a 0 se agota solo; si sí hay, se toca y se pone cuántas piezas hay. En "Inventario" se registra lo que llega después y se corrige un conteo.
+4. Tocar producto → tocar sabor (una vez por pieza) → **Listo** → **Continuar** → elegir cómo pagó → **Confirmar venta**.
+5. Pantalla verde = guardada en la base de datos. Pantalla crema = guardada en el dispositivo; se envía sola al volver el internet.
+6. **Ventas de hoy**: ver lo registrado y cancelar una venta propia durante los primeros 10 minutos.
+7. **Agotados** (solo Lomas): marcar un sabor agotado (solo ese día).
+8. **Cambiar turno**: terminar turno para que entre otro empleado.
 
 ## Administración (`/admin`)
 - **Ventas**: filtrar por fechas, punto, método, producto, sabor y estado; descargar Excel. **Respaldo completo** una vez por semana (el plan gratis de Supabase no guarda respaldos).
 - **Productos y precios**: cambiar precios (solo afecta ventas nuevas), nombre del sabor de temporada, activar o desactivar sabores, qué sabores tiene cada producto.
 - **Empleados**: alta con nombre, punto y PIN; cambiar PIN; desactivar.
-- **Puntos y pagos**: qué botones de pago aparecen en cada punto.
+- **Inventario**: por carrito y día: inicial, llegó, ajustes, vendido y lo que queda; descarga a Excel.
+- **Puntos y pagos**: qué vende cada punto y qué botones de pago aparecen en cada uno.
 
 ## Seguridad
 - La URL es pública, pero sin iniciar sesión no se ve ni se guarda nada (reglas RLS en la base de datos).

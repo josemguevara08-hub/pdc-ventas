@@ -66,6 +66,7 @@
     $('#v-login').hidden = true; $('#v-panel').hidden = false;
     await cargarCatalogo();
     $('#f-desde').value = hoyCDMX(); $('#f-hasta').value = hoyCDMX();
+    $('#i-desde').value = hoyCDMX(); $('#i-hasta').value = hoyCDMX();
     consultar();
   }
 
@@ -75,6 +76,7 @@
     $$('#pestanas button').forEach((x) => x.classList.toggle('activa', x === b));
     $$('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.tab; });
     if (b.dataset.tab === 'empleados') cargarEmpleados();
+    if (b.dataset.tab === 'inventario') consultarInventario();
   });
 
   // =====================================================================
@@ -98,6 +100,9 @@
     $('#f-punto').innerHTML = '<option value="">Todos</option>' + opts(D.puntos, 'id', 'nombre');
     $('#f-metodo').innerHTML = '<option value="">Todos</option>' + opts(D.metodos, 'id', 'nombre');
     $('#e-punto').innerHTML = opts(D.puntos, 'id', 'nombre');
+    const iSel = $('#i-punto').value;
+    $('#i-punto').innerHTML = '<option value="">Todos</option>' + opts(D.puntos.filter((p) => p.usa_inventario), 'id', 'nombre');
+    $('#i-punto').value = iSel;
     const dSel = $('#d-punto').value;
     $('#d-punto').innerHTML = opts(D.puntos, 'id', 'nombre');
     if (dSel) $('#d-punto').value = dSel;
@@ -172,12 +177,14 @@
     const ventas = new Set(activas.map((f) => f.venta_id)).size;
     const piezas = activas.reduce((a, f) => a + f.cantidad, 0);
     const ingresos = activas.reduce((a, f) => a + Number(f.importe), 0);
-    const canceladas = new Set(filas.filter((f) => f.estado === 'cancelada').map((f) => f.venta_id)).size;
+    const filasCanc = filas.filter((f) => f.estado === 'cancelada');
+    const canceladas = new Set(filasCanc.map((f) => f.venta_id)).size;
+    const montoCanc = filasCanc.reduce((a, f) => a + Number(f.importe), 0);
     $('#kpis').innerHTML = `
       <div class="kpi azul"><span>Ventas</span><b>${entero(ventas)}</b></div>
       <div class="kpi menta"><span>Piezas vendidas</span><b>${entero(piezas)}</b></div>
       <div class="kpi crema"><span>Ingresos (precio de lista)</span><b>${dinero(ingresos)}</b></div>
-      <div class="kpi frambuesa"><span>Ventas canceladas</span><b>${entero(canceladas)}</b></div>`;
+      <div class="kpi frambuesa"><span>Canceladas (${dinero(montoCanc)})</span><b>${entero(canceladas)}</b></div>`;
 
     const base = $('#f-estado').value === 'cancelada' ? filas : activas;
     const colsPS = [{ t: 'Producto', k: 'producto' }, { t: 'Sabor', k: 'sabor' }, { t: 'Piezas', k: 'piezas', num: true, f: (g) => entero(g.piezas) }, { t: 'Ingresos', num: true, f: (g) => dinero(g.ingresos) }];
@@ -390,6 +397,38 @@
     const tr = ev.target.closest('tr'); const v = filaValores(tr);
     if (v.pin && !/^\d{4}$/.test(v.pin)) return aviso('El PIN debe tener 4 números', 'error');
     if (await guardarEmpleado(Number(tr.dataset.id), v.nombre.trim(), v.punto_id, v.pin, v.activo)) cargarEmpleados();
+  });
+
+  // =====================================================================
+  // Inventario
+  // =====================================================================
+  D.inventario = [];
+  async function consultarInventario() {
+    const b = $('#i-consultar'); b.disabled = true; b.textContent = 'Consultando…';
+    const { data, error } = await sb.rpc('reporte_inventario', {
+      p_desde: $('#i-desde').value || hoyCDMX(), p_hasta: $('#i-hasta').value || hoyCDMX(), p_punto: $('#i-punto').value || null
+    });
+    b.disabled = false; b.textContent = 'Consultar';
+    if (error) { aviso('Error: ' + error.message, 'error'); return; }
+    D.inventario = data || [];
+    const cols = [
+      { t: 'Fecha', k: 'fecha' }, { t: 'Carrito', k: 'punto' }, { t: 'Producto', k: 'producto' }, { t: 'Sabor', k: 'sabor' },
+      { t: 'Inicial', k: 'inicial', num: true }, { t: 'Llegó', k: 'resurtido', num: true }, { t: 'Ajustes', k: 'ajustes', num: true },
+      { t: 'Vendido', k: 'vendido', num: true },
+      { t: 'Quedan', num: true, html: (f) => f.quedan < 0 ? `<b style="color:var(--frambuesa)">${f.quedan} (revisar)</b>` : String(f.quedan) }
+    ];
+    const suma = (k) => entero(D.inventario.reduce((a, f) => a + f[k], 0));
+    $('#i-tabla').innerHTML = D.inventario.length
+      ? tabla(cols, D.inventario, ['Total', '', '', '', suma('inicial'), suma('resurtido'), suma('ajustes'), suma('vendido'), suma('quedan')])
+      : '<p class="vacio">No hay inventario registrado en esas fechas.</p>';
+  }
+  $('#i-consultar').addEventListener('click', consultarInventario);
+  $('#i-excel').addEventListener('click', () => {
+    const wb = XLSX.utils.book_new();
+    const datos = D.inventario.map((f) => ({ Fecha: f.fecha, Carrito: f.punto, Producto: f.producto, Sabor: f.sabor,
+      Inicial: f.inicial, 'Llegó': f.resurtido, Ajustes: f.ajustes, Vendido: f.vendido, Quedan: f.quedan }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datos.length ? datos : [{ 'Sin datos': '' }]), 'Inventario');
+    XLSX.writeFile(wb, `inventario_pdc_${$('#i-desde').value}_a_${$('#i-hasta').value}.xlsx`);
   });
 
   iniciar();

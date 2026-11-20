@@ -261,10 +261,12 @@ button { cursor: pointer; border: 0; background: none; touch-action: manipulatio
 .contenido { max-width: 860px; margin: 0 auto; padding: 20px 16px 48px; }
 .volver { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .volver .titulo { color: var(--azul); font-size: clamp(24px, 5vw, 32px); flex: 1; }
-.totales-hoy { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.totales-hoy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
 .totales-hoy div { border-radius: 22px; padding: 16px 18px; font-weight: 700; }
 .totales-hoy div:first-child { background: var(--azul); color: var(--crema); }
-.totales-hoy div:last-child { background: var(--menta); }
+.totales-hoy div:nth-child(2) { background: var(--menta); }
+.totales-hoy div:nth-child(3) { background: var(--crema); }
+@media (max-width: 480px) { .totales-hoy b { font-size: 30px; } }
 .totales-hoy b { display: block; font-family: var(--f-titulo); font-size: 40px; line-height: 1; margin-top: 6px; }
 .venta-hoy { border-radius: 22px; background: var(--crema-clara); padding: 16px 18px; margin-bottom: 12px; }
 .venta-hoy .cab { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
@@ -321,10 +323,40 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 15px; }
 .tabla th { text-align: left; background: var(--crema-clara); padding: 10px; font-weight: 700; white-space: nowrap; color: var(--azul); }
 .tabla td { padding: 9px 10px; border-bottom: 1px solid var(--crema); vertical-align: middle; }
 .tabla td.num, .tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
-.tabla tr.cancelada td { color: #a49b91; text-decoration: line-through; }
+.tabla tr.cancelada td { color: var(--frambuesa); text-decoration: line-through; }
 .tabla tfoot td { font-weight: 700; border-top: 2px solid var(--azul); }
 .tabla input[type=text], .tabla input[type=number], .tabla select { min-height: 42px; border-radius: 10px; border: 2px solid var(--crema-osc); padding: 6px 10px; width: 100%; min-width: 90px; background: var(--blanco); }
 .tabla .btn { min-height: 42px; font-size: 14px; padding: 6px 14px; }
 .check { width: 26px; height: 26px; accent-color: var(--azul); }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 #v-login.campo-azul .tarjeta { color: var(--tinta); }
+
+/* ---------- Precios y totales ---------- */
+.producto .precio { position: absolute; top: 12px; left: 12px; background: var(--blanco); color: var(--azul); border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: 16px; }
+.total-venta { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 2px 16px; border-top: 2px solid var(--crema); font-weight: 700; }
+.total-venta b { font-family: var(--f-titulo); font-size: 26px; color: var(--azul); }
+.total-venta.grande { border-top: 0; padding: 0 4px 18px; margin-top: -8px; }
+.total-venta.grande b { font-size: 34px; }
+.total-corto { display: block; color: var(--azul); font-weight: 700; font-size: 17px; }
+
+/* ---------- Inventario ---------- */
+.sabor .quedan { position: absolute; bottom: 8px; right: 12px; font-family: var(--f-texto); font-size: 13px; text-transform: none; letter-spacing: 0; font-weight: 700; opacity: .8; }
+.sabor.agotado.reactivable { pointer-events: auto; cursor: pointer; }
+.sabor.agotado.reactivable::after { content: 'Agotado - ¿hay?'; }
+.barra-inferior.siempre { display: flex; }
+#v-conteo .contenido { padding-bottom: 130px; }
+.conteo-producto { padding: 6px 0 18px; border-bottom: 2px dotted var(--crema); margin-bottom: 14px; }
+.conteo-producto h3 { margin: 0 0 12px; color: var(--azul); font-size: 18px; }
+.conteo-producto .sabores { margin-bottom: 0; }
+.stock-producto { padding: 14px 0 6px; border-bottom: 2px dotted var(--crema); }
+.stock-producto h3 { margin: 0 0 8px; color: var(--azul); font-size: 18px; }
+.stock-fila { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.stock-fila .nombre-sabor { flex: 1; font-weight: 700; }
+.stock-fila .cuantas { font-family: var(--f-titulo); font-size: 26px; color: var(--azul); min-width: 48px; text-align: right; }
+.stock-fila.cero .cuantas { color: var(--frambuesa); }
+.stock-fila .btn { min-height: 48px; font-size: 15px; padding: 6px 16px; }
+.contador-grande { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 6px 0 24px; }
+.contador-grande .titulo { font-size: 64px; color: var(--azul); min-width: 110px; text-align: center; }
+.menos-grande, .mas-grande { width: 84px; height: 84px; border-radius: 50%; font-size: 40px; font-weight: 700; }
+.menos-grande { background: var(--crema); color: var(--frambuesa); }
+.mas-grande { background: var(--azul); color: var(--blanco); }
