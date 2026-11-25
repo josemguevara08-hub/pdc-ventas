@@ -17,7 +17,7 @@ App web para que el personal de Pedazo de Cielo registre qué se vende en cada p
 3. Carritos (Artz, Mitikah, Satélite, Polanco): lo primero del día es contar el inventario (tocar cada sabor una vez por pieza). Sin esto no se puede vender. Un sabor que llega a 0 se agota solo; si sí hay, se toca y se pone cuántas piezas hay. En "Inventario" se registra lo que llega después y se corrige un conteo.
 4. Tocar producto → tocar sabor (una vez por pieza) → **Listo** → **Continuar** → elegir cómo pagó → **Confirmar venta**.
 5. Pantalla verde = guardada en la base de datos. Pantalla crema = guardada en el dispositivo; se envía sola al volver el internet.
-6. **Ventas de hoy**: ver lo registrado y cancelar una venta propia durante los primeros 10 minutos.
+6. **Ventas de hoy**: ver lo registrado y cancelar una venta propia durante los primeros 10 minutos, escribiendo el motivo (obligatorio).
 7. **Agotados** (solo Lomas): marcar un sabor agotado (solo ese día).
 8. **Cambiar turno**: terminar turno para que entre otro empleado.
 

@@ -360,3 +360,8 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 15px; }
 .menos-grande, .mas-grande { width: 84px; height: 84px; border-radius: 50%; font-size: 40px; font-weight: 700; }
 .menos-grande { background: var(--crema); color: var(--frambuesa); }
 .mas-grande { background: var(--azul); color: var(--blanco); }
+
+/* ---------- Motivo de cancelación ---------- */
+textarea.motivo { width: 100%; min-height: 96px; border-radius: 16px; border: 2px solid var(--crema-osc); padding: 12px 14px; font: inherit; font-size: 18px; margin-bottom: 16px; resize: vertical; }
+textarea.motivo:focus { outline: none; border-color: var(--frambuesa); }
+.motivo-txt { margin: 8px 0 0; color: var(--frambuesa); font-weight: 700; }

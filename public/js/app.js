@@ -18,7 +18,7 @@
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin espacio */ } },
     del(k) { try { localStorage.removeItem(k); } catch { /* nada */ } }
   };
-  const K = { ctx: 'pdc_ctx', turno: 'pdc_turno', catalogo: 'pdc_catalogo', cola: 'pdc_cola', ticket: 'pdc_ticket' };
+  const K = { ctx: 'pdc_ctx', turno: 'pdc_turno', catalogo: 'pdc_catalogo', cola: 'pdc_cola', ticket: 'pdc_ticket', canc: 'pdc_cancelaciones' };
 
   const pesos = (n) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n || 0);
   const hoyCDMX = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -48,12 +48,14 @@
     catalogo: null,     // { productos:[{id,nombre,sabores:[{id,nombre,agotado}]}], metodos:[{id,nombre}] }
     ticket: LS.get(K.ticket, []),   // [{ producto_id, sabor_id, cantidad }]
     cola: LS.get(K.cola, []),       // ventas guardadas en el dispositivo aún no confirmadas por la base de datos
+    cancelaciones: LS.get(K.canc, []), // cancelaciones con motivo que esperan internet
     productoAbierto: null,
     metodo: null,
     guardando: false,
     sincronizando: false
   };
   const guardarCola = () => LS.set(K.cola, E.cola);
+  const guardarCanc = () => LS.set(K.canc, E.cancelaciones);
   const guardarTicket = () => LS.set(K.ticket, E.ticket);
 
   // ---------- Pantallas ----------
@@ -87,6 +89,32 @@
         f.remove(); resolve(b ? b.dataset.r === '1' : false);
       });
       document.body.appendChild(f);
+    });
+  }
+
+  // Pide el motivo de una cancelación; devuelve el texto o null si se arrepiente
+  function pedirMotivo(titulo) {
+    return new Promise((resolve) => {
+      const f = document.createElement('div');
+      f.className = 'fondo-modal';
+      f.innerHTML = `<div class="hoja" role="dialog" aria-modal="true">
+          <div class="hoja-cabecera"><h2 class="titulo">${esc(titulo)}</h2>
+            <div class="ayuda">Escribe por qué se cancela. Es obligatorio.</div></div>
+          <textarea class="motivo" maxlength="300" rows="3" placeholder="Ej. El cliente cambió de sabor"></textarea>
+          <div class="botones-hoja">
+            <button class="btn btn-peligro btn-bloque" data-r="1" disabled>Cancelar venta</button>
+            <button class="btn btn-secundario btn-bloque" data-r="0">No cancelar</button>
+          </div></div>`;
+      const ta = f.querySelector('textarea'); const ok = f.querySelector('[data-r="1"]');
+      ta.addEventListener('input', () => { ok.disabled = ta.value.trim().length < 3; });
+      f.addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-r]');
+        if (!b && ev.target !== f) return;
+        if (b && b.disabled) return;
+        f.remove(); resolve(b && b.dataset.r === '1' ? ta.value.trim() : null);
+      });
+      document.body.appendChild(f);
+      setTimeout(() => ta.focus(), 60);
     });
   }
 
@@ -232,7 +260,7 @@
   const invRegistrado = () => !!(E.catalogo && E.catalogo.inventario && E.catalogo.inventario.registrado);
   // piezas de ventas guardadas en el dispositivo que la base de datos aún no descuenta
   function pendientesCola(pid, sid) {
-    return E.cola.filter((v) => !v.error && E.ctx && v.punto === E.ctx.punto_id)
+    return E.cola.filter((v) => !v.error && !v.cancelar && E.ctx && v.punto === E.ctx.punto_id)
       .reduce((a, v) => a + v.items.filter((i) => i.producto_id === pid && i.sabor_id === sid).reduce((b, i) => b + i.cantidad, 0), 0);
   }
   // cuántas quedan (sin contar la venta en curso); null = este punto no lleva inventario
@@ -446,6 +474,10 @@
     const { data, error, status } = res;
     if (!error && data != null) {
       E.cola = E.cola.filter((v) => v.id !== venta.id); guardarCola();
+      if (venta.cancelar) {
+        E.cancelaciones.push({ id: venta.id, motivo: venta.cancelar, empleado_id: venta.empleado_id });
+        guardarCanc();
+      }
       return { ok: true, folio: data };
     }
     if (esErrorDeRed(error, status)) return { ok: false };
@@ -479,13 +511,22 @@
   async function sincronizar() {
     if (E.sincronizando || E.guardando) return;
     const porEnviar = E.cola.filter((v) => !v.error);
-    if (!porEnviar.length) return;
+    if (!porEnviar.length && !E.cancelaciones.length) return;
     E.sincronizando = true;
     let enviadas = 0;
     for (const v of porEnviar) {
       const r = await enviar(v);
       if (r.ok) enviadas += 1;
       if (!r.ok && !r.rechazada) break;   // sigue sin internet: se intenta más tarde
+    }
+    for (const c of [...E.cancelaciones]) {
+      let res;
+      try {
+        res = await sb.rpc('cancelar_venta', { p_id: c.id, p_motivo: c.motivo, p_empleado_id: c.empleado_id });
+      } catch (e) { res = { error: { message: String(e) }, status: 0 }; }
+      if (res.error && esErrorDeRed(res.error, res.status)) break;
+      if (res.error) aviso('No se pudo cancelar una venta: ' + res.error.message, 'error');
+      E.cancelaciones = E.cancelaciones.filter((x) => x !== c); guardarCanc(); enviadas += 1;
     }
     E.sincronizando = false;
     pintarPendientes();
@@ -529,11 +570,12 @@
 
     const activas = servidor.filter((v) => v.estado === 'activa');
     const piezasServ = activas.reduce((a, v) => a + (v.items || []).reduce((b, i) => b + i.cantidad, 0), 0);
-    const piezasLoc = locales.filter((v) => !v.error).reduce((a, v) => a + v.items.reduce((b, i) => b + i.cantidad, 0), 0);
-    $('#h-ventas').textContent = activas.length + locales.filter((v) => !v.error).length;
+    const vigentesLoc = locales.filter((v) => !v.error && !v.cancelar);
+    const piezasLoc = vigentesLoc.reduce((a, v) => a + v.items.reduce((b, i) => b + i.cantidad, 0), 0);
+    $('#h-ventas').textContent = activas.length + vigentesLoc.length;
     $('#h-piezas').textContent = piezasServ + piezasLoc;
     const dineroServ = activas.reduce((a, v) => a + (v.items || []).reduce((b, i) => b + Number(i.importe || 0), 0), 0);
-    const dineroLoc = locales.filter((v) => !v.error).reduce((a, v) => a + v.items.reduce((b, i) => {
+    const dineroLoc = vigentesLoc.reduce((a, v) => a + v.items.reduce((b, i) => {
       const { producto } = buscar(i.producto_id, i.sabor_id); return b + (producto ? Number(producto.precio) * i.cantidad : 0);
     }, 0), 0);
     $('#h-total').textContent = pesos(dineroServ + dineroLoc);
@@ -544,11 +586,14 @@
         <div class="cab">
           <span class="folio">${horaCDMX(new Date(v.fecha))}</span>
           <span class="quien">${esc(v.empleado)}, ${esc(v.metodo_nombre.toLowerCase())}</span>
-          ${v.error ? `<span class="chip rojo">No se guardó: ${esc(v.error)}</span>` : '<span class="chip">Esperando internet</span>'}
+          ${v.error ? `<span class="chip rojo">No se guardó: ${esc(v.error)}</span>`
+            : v.cancelar ? '<span class="chip rojo">Cancelada, se enviará</span>' : '<span class="chip">Esperando internet</span>'}
         </div>
         <ul>${v.items.map((i) => `<li>${i.cantidad} ${esc(i.producto)}, ${esc(i.sabor)}</li>`).join('')}</ul>
-        ${v.error ? `<button class="btn btn-secundario" data-reintentar="${v.id}">Reintentar</button>` : ''}
-        <button class="btn btn-peligro" data-descartar="${v.id}">${v.error ? 'Descartar' : 'Cancelar'}</button>
+        ${v.cancelar ? `<p class="motivo-txt">Motivo: ${esc(v.cancelar)}</p>` : ''}
+        ${v.error ? `<button class="btn btn-secundario" data-reintentar="${v.id}">Reintentar</button>
+                     <button class="btn btn-peligro" data-descartar="${v.id}">Descartar</button>` : ''}
+        ${!v.error && !v.cancelar ? `<button class="btn btn-peligro" data-cancelar-local="${v.id}">Cancelar venta</button>` : ''}
       </div>`).join('');
 
     const htmlServ = servidor.map((v) => {
@@ -558,9 +603,10 @@
           <div class="cab">
             <span class="folio">#${v.folio}</span>
             <span class="quien">${esc(v.hora)} h, ${esc(v.empleado)}, ${esc(String(v.metodo).toLowerCase())}</span>
-            ${v.estado === 'cancelada' ? '<span class="chip rojo">Cancelada</span>' : ''}
+            ${v.estado === 'cancelada' ? `<span class="chip rojo">Cancelada${v.cancelada_hora ? ' ' + esc(v.cancelada_hora) + ' h' : ''}</span>` : ''}
           </div>
           <ul>${(v.items || []).map((i) => `<li>${i.cantidad} ${esc(i.producto)}, ${esc(i.sabor)}</li>`).join('')}</ul>
+          ${v.estado === 'cancelada' && v.motivo ? `<p class="motivo-txt">Motivo: ${esc(v.motivo)}</p>` : ''}
           ${puede ? `<button class="btn btn-peligro" data-cancelar="${v.id}" data-folio="${v.folio}">Cancelar venta</button>` : ''}
         </div>`;
     }).join('');
@@ -573,9 +619,20 @@
   $('#h-lista').addEventListener('click', async (ev) => {
     const c = ev.target.closest('[data-cancelar]');
     if (c) {
-      if (!await preguntar(`¿Cancelar la venta #${c.dataset.folio}? Quedará marcada como cancelada.`, 'Sí, cancelar', 'No', true)) return;
-      const { error } = await sb.rpc('cancelar_venta', { p_id: c.dataset.cancelar, p_empleado_id: E.turno.empleado_id });
+      const motivo = await pedirMotivo(`¿Cancelar la venta #${c.dataset.folio}?`);
+      if (!motivo) return;
+      const { error } = await sb.rpc('cancelar_venta', { p_id: c.dataset.cancelar, p_motivo: motivo, p_empleado_id: E.turno.empleado_id });
       if (error) aviso(error.message, 'error'); else { aviso('Venta cancelada'); cargarCatalogo(); }
+      return abrirHoy();
+    }
+    const cl = ev.target.closest('[data-cancelar-local]');
+    if (cl) {
+      const motivo = await pedirMotivo('¿Cancelar esta venta?');
+      if (!motivo) return;
+      const v = E.cola.find((x) => x.id === cl.dataset.cancelarLocal);
+      // Se registra igual y se cancela con su motivo en cuanto haya internet, para que quede en el historial
+      if (v) { v.cancelar = motivo; guardarCola(); aviso('Venta cancelada'); sincronizar(); }
+      pintarProductos(); if (!$('#m-sabores').hidden) pintarSabores();
       return abrirHoy();
     }
     const d = ev.target.closest('[data-descartar]');

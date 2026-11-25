@@ -32,6 +32,25 @@
     });
   }
 
+  // Pide el motivo de una cancelación (obligatorio); devuelve el texto o null
+  function pedirMotivo(titulo) {
+    return new Promise((resolve) => {
+      const f = document.createElement('div'); f.className = 'fondo-modal';
+      f.innerHTML = `<div class="hoja" role="dialog" aria-modal="true"><div class="hoja-cabecera"><h2 class="titulo">${esc(titulo)}</h2>
+        <div class="ayuda">Escribe por qué se cancela. Es obligatorio.</div></div>
+        <textarea class="motivo" maxlength="300" rows="3" placeholder="Ej. Error de captura"></textarea>
+        <div class="botones-hoja"><button class="btn btn-peligro btn-bloque" data-r="1" disabled>Cancelar venta</button>
+        <button class="btn btn-secundario btn-bloque" data-r="0">No cancelar</button></div></div>`;
+      const ta = f.querySelector('textarea'); const ok = f.querySelector('[data-r="1"]');
+      ta.addEventListener('input', () => { ok.disabled = ta.value.trim().length < 3; });
+      f.addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-r]'); if (!b && ev.target !== f) return; if (b && b.disabled) return;
+        f.remove(); resolve(b && b.dataset.r === '1' ? ta.value.trim() : null);
+      });
+      document.body.appendChild(f); setTimeout(() => ta.focus(), 60);
+    });
+  }
+
   const D = { puntos: [], metodos: [], productos: [], sabores: [], prodSabores: [], metodosPunto: [], noDisponible: [], empleados: [], filas: [] };
 
   // =====================================================================
@@ -203,6 +222,7 @@
       { t: 'Empleado', k: 'empleado' }, { t: 'Producto', k: 'producto' }, { t: 'Sabor', k: 'sabor' },
       { t: 'Cant.', k: 'cantidad', num: true }, { t: 'Precio', num: true, f: (f) => dinero(f.precio_unitario) },
       { t: 'Importe', num: true, f: (f) => dinero(f.importe) }, { t: 'Pago', k: 'metodo_pago' }, { t: 'Estado', k: 'estado' },
+      { t: 'Motivo de cancelación', f: (f) => f.estado === 'cancelada' ? [f.motivo_cancelacion || '(sin motivo)', f.cancelada_por, f.cancelada_en].filter(Boolean).join(' - ') : '' },
       { t: '', html: (f) => f.estado === 'activa' ? `<button class="btn btn-secundario" data-cancelar="${esc(f.venta_id)}" data-folio="${f.folio}">Cancelar</button>` : '' }
     ];
     $('#t-detalle').innerHTML = tabla(colsD, det) + (filas.length > LIM ? `<p class="nota">Se muestran ${LIM} de ${entero(filas.length)} renglones. La descarga de Excel incluye todos.</p>` : '');
@@ -214,8 +234,9 @@
 
   $('#t-detalle').addEventListener('click', async (ev) => {
     const b = ev.target.closest('[data-cancelar]'); if (!b) return;
-    if (!await preguntar(`¿Cancelar la venta #${b.dataset.folio} completa? Quedará marcada como cancelada (no se borra).`, 'Sí, cancelar', 'No')) return;
-    const { error } = await sb.rpc('cancelar_venta', { p_id: b.dataset.cancelar });
+    const motivo = await pedirMotivo(`¿Cancelar la venta #${b.dataset.folio} completa? Quedará registrada como cancelada.`);
+    if (!motivo) return;
+    const { error } = await sb.rpc('cancelar_venta', { p_id: b.dataset.cancelar, p_motivo: motivo });
     if (error) return aviso(error.message, 'error');
     aviso('Venta cancelada'); consultar();
   });
@@ -226,7 +247,8 @@
       Folio: f.folio, Fecha: f.fecha, Hora: f.hora, Punto: f.punto, Empleado: f.empleado,
       Producto: f.producto, Sabor: f.sabor, Cantidad: f.cantidad,
       'Precio unitario': Number(f.precio_unitario), Importe: Number(f.importe),
-      'Método de pago': f.metodo_pago, Estado: f.estado
+      'Método de pago': f.metodo_pago, Estado: f.estado,
+      'Motivo de cancelación': f.motivo_cancelacion || '', 'Cancelada por': f.cancelada_por || '', 'Cancelada el': f.cancelada_en || ''
     }));
   }
   function libro(filas) {
